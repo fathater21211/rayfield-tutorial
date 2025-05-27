@@ -1,5 +1,5 @@
 task.wait(5)
-loadstring(game:HttpGet('https://raw.githubusercontent.com/fathater21211/Aladia/refs/heads/main/script?token=GHSAT0AAAAAADCNLTVALNR526GGZZMY5QWC2BWDH4A'))()
+loadstring(game:HttpGet('https://raw.githubusercontent.com/Pixeluted/adoniscries/refs/heads/main/Source.lua'))()
 
 
 local Players = game:GetService("Players")
