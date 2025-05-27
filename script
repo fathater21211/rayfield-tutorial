@@ -1,15 +1,63 @@
-
+task.wait(5)
 loadstring(game:HttpGet('https://pastebin.com/raw/jWHsGK0H'))()
 
+local Players = game:GetService("Players")
+local Lighting = game:GetService("Lighting")
+local TweenService = game:GetService("TweenService")
+
+-- Create and configure the blur effect
+local blurEffect = Instance.new("BlurEffect")
+blurEffect.Size = 0
+blurEffect.Parent = Lighting
+
+-- Create and configure the ScreenGui
+local screenGui = Instance.new("ScreenGui")
+screenGui.ResetOnSpawn = false
+screenGui.IgnoreGuiInset = true
+screenGui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
+
+-- Create and configure the ImageLabel
+local imageLabel = Instance.new("ImageLabel")
+imageLabel.Size = UDim2.new(0, 303, 0, 263)
+imageLabel.Position = UDim2.new(0.5, -151, 0.5, -131)
+imageLabel.BackgroundTransparency = 1
+imageLabel.Image = "rbxassetid://83828224755095" -- Replace with your image asset ID
+imageLabel.ImageTransparency = 1
+imageLabel.ZIndex = 10
+imageLabel.Visible = true
+imageLabel.Parent = screenGui
+
+-- Animate the blur and image transparency
+-- Animate the blur and image transparency
+for i = 1, 50, 2 do
+    blurEffect.Size = i
+    imageLabel.ImageTransparency = math.clamp(imageLabel.ImageTransparency - 0.1, 0, 1)
+    wait()
+end
+
+-- Wait for 3 seconds before proceeding
+wait(3)
+
+-- Tween the image position
+local tweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+local targetPosition = UDim2.new(0.5, 342 / 1, 0.5, 263 / 2)
+local tween = TweenService:Create(imageLabel, tweenInfo, {Position = targetPosition})
+tween:Play()
+tween.Completed:Wait()
+
+
+-- Clean up
+blurEffect:Destroy()
+screenGui:Destroy()
 
 
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "Quantum|Aladia PVP",
+   Name = "OBSCURA|Aladia PVP| ONLY USE SILENCED PISTOL!",
    Icon = 0, -- Icon in Topbar. Can use Lucide Icons (string) or Roblox Image (number). 0 to use no icon (default).
-   LoadingTitle = "Rayfield Interface Suite",
-   LoadingSubtitle = "by Sirius",
+   LoadingTitle = "OBSCURA",
+   LoadingSubtitle = "by External",
    Theme = "Default", -- Check https://docs.sirius.menu/rayfield/configuration/themes
 
    DisableRayfieldPrompts = false,
@@ -65,20 +113,7 @@ getgenv().select_options = nil
 --Ocean - Ocean
 --Serenity - Serenity
 
-print('Bypassing Corescript')
-Rayfield:Notify({
-    Title = "Bypass",
-    Content = "Bypassed CoreScript",
-    Duration = 6.5,
-    Image = 4483362458,
- })
-task.wait(0.2)
-Rayfield:Notify({
-    Title = "Bypass",
-    Content = "Bypassed Anti-Cheat",
-    Duration = 6.5,
-    Image = 4483362458,
- })
+
 print('Adonis Bypassed')
 task.wait(0.2)
 print('Loading')
@@ -121,393 +156,118 @@ Rayfield:Notify({
     CurrentValue = false,
     Flag = "Toggle1", -- A flag is the identifier for the configuration file, make sure every element has a different flag if you're using configuration saving to ensure no overlaps
     Callback = function(Value)
-		--// Preventing Multiple Processes
-
-pcall(function()
-	getgenv().Aimbot.Functions:Exit()
-end)
-
---// Environment
-
-getgenv().Aimbot = {}
-local Environment = getgenv().Aimbot
-
---// Services
-
-local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
-local HttpService = game:GetService("HttpService")
-local TweenService = game:GetService("TweenService")
-local StarterGui = game:GetService("StarterGui")
 local Players = game:GetService("Players")
-local Camera = game:GetService("Workspace").CurrentCamera
-
---// Variables
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
 
 local LocalPlayer = Players.LocalPlayer
-local Title = "JDDEV"
-local FileNames = {"Aimbot", "Configuration.json", "Drawing.json"}
-local Typing, Running, Animation, RequiredDistance, ServiceConnections = false, false, nil, 2000, {}
+local Mouse = LocalPlayer:GetMouse()
+local Camera = workspace.CurrentCamera
 
---// Support Functions
 
-local mousemoverel = mousemoverel or (Input and Input.MouseMove)
-local queueonteleport = queue_on_teleport or syn.queue_on_teleport
+local AimEnabled = false
+local Smoothness = 0.08      
+local AimbotMode = "Instant"  -- "Instant" or "Smooth"
+local MaxFOV = 60          -- Max pixel radius from mouse to consider a target
+local FOVCircleRadius = 60   
+local FOVCircle = Drawing.new("Circle") -- Creating a drawing object for the FOV Circle
 
---// Script Settings
 
-Environment.Settings = {
-	SendNotifications = true,
-	SaveSettings = true, -- Re-execute upon changing
-	ReloadOnTeleport = true,
-	Enabled = true,
-	TeamCheck = false,
-	AliveCheck = true,
-	WallCheck = false, -- Laggy
-	Sensitivity = 0, -- Animation length (in seconds) before fully locking onto target
-	ThirdPerson = false, -- Uses mousemoverel instead of CFrame to support locking in third person (could be choppy)
-	ThirdPersonSensitivity = 3, -- Boundary: 0.1 - 5
-	TriggerKey = "MouseButton2",
-	Toggle = false,
-	LockPart = "Head" -- Body part to lock on
-}
+FOVCircle.Thickness = 1
+FOVCircle.Color = Color3.fromRGB(255, 0, 0)  
+FOVCircle.Filled = true    
+FOVCircle.Transparency = 0.3 
+FOVCircle.Visible = true
 
-Environment.FOVSettings = {
-	Enabled = true,
-	Visible = true,
-	Amount = 90,
-	Color = "255,192,203",
-	LockedColor = "252,15,192",
-	Transparency = 0.5,
-	Sides = 60,
-	Thickness = 1,
-	Filled = false
-}
-
-Environment.FOVCircle = Drawing.new("Circle")
-Environment.Locked = nil
-
---// Core Functions
-
-local function Encode(Table)
-	if Table and type(Table) == "table" then
-		local EncodedTable = HttpService:JSONEncode(Table)
-
-		return EncodedTable
-	end
+-- Update the position of the FOV Circle to be at the center of the screen
+-- Update the position of the FOV Circle to always be at the center of the screen
+local function updateFOVCircle()
+    -- Get the screen center position
+    local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+    -- Set the FOV circle to be at the center
+    FOVCircle.Position = screenCenter
+    FOVCircle.Radius = FOVCircleRadius
 end
 
-local function Decode(String)
-	if String and type(String) == "string" then
-		local DecodedTable = HttpService:JSONDecode(String)
-
-		return DecodedTable
-	end
+-- Gets the aimable body part of the character (for R6/R15)
+local function getBody(character)
+    return character:FindFirstChild("HumanoidRootPart") or character:FindFirstChild("UpperTorso") or character:FindFirstChild("Torso")
 end
 
-local function GetColor(Color)
-	local R = tonumber(string.match(Color, "([%d]+)[%s]*,[%s]*[%d]+[%s]*,[%s]*[%d]+"))
-	local G = tonumber(string.match(Color, "[%d]+[%s]*,[%s]*([%d]+)[%s]*,[%s]*[%d]+"))
-	local B = tonumber(string.match(Color, "[%d]+[%s]*,[%s]*[%d]+[%s]*,[%s]*([%d]+)"))
+-- Get closest visible player within FOV
+local function getClosestPlayer()
+    local closest = nil
+    local shortest = MaxFOV
 
-	return Color3.fromRGB(R, G, B)
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character then
+            local character = player.Character
+            local humanoid = character:FindFirstChildOfClass("Humanoid")
+
+            if humanoid and humanoid.Health > 0 then
+                local part = getBody(character)
+                if part then
+                    local screenPos, onScreen = Camera:WorldToScreenPoint(part.Position)
+                    if onScreen then
+                        local dist = (Vector2.new(Mouse.X, Mouse.Y) - Vector2.new(screenPos.X, screenPos.Y)).Magnitude
+                        if dist < shortest then
+                            shortest = dist
+                            closest = part
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    return closest
 end
 
-local function SendNotification(TitleArg, DescriptionArg, DurationArg)
-	if Environment.Settings.SendNotifications then
-		StarterGui:SetCore("SendNotification", {
-			Title = TitleArg,
-			Text = DescriptionArg,
-			Duration = DurationArg
-		})
-	end
+-- Smooth or instant aim toward the target
+local function aimAtTarget()
+    local targetPart = getClosestPlayer()
+    if targetPart then
+        local targetPos = targetPart.Position
+        local camPos = Camera.CFrame.Position
+        local aimCFrame = CFrame.new(camPos, targetPos)
+
+        if AimbotMode == "Instant" then
+            Camera.CFrame = aimCFrame
+        else
+            Camera.CFrame = Camera.CFrame:Lerp(aimCFrame, Smoothness)
+        end
+    end
 end
 
---// Functions
-
-local function SaveSettings()
-	if Environment.Settings.SaveSettings then
-		if isfile(Title.."/"..FileNames[1].."/"..FileNames[2]) then
-			writefile(Title.."/"..FileNames[1].."/"..FileNames[2], Encode(Environment.Settings))
-		end
-
-		if isfile(Title.."/"..FileNames[1].."/"..FileNames[3]) then
-			writefile(Title.."/"..FileNames[1].."/"..FileNames[3], Encode(Environment.FOVSettings))
-		end
-	end
-end
-
-local function GetClosestPlayer()
-	if not Environment.Locked then
-		if Environment.FOVSettings.Enabled then
-			RequiredDistance = Environment.FOVSettings.Amount
-		else
-			RequiredDistance = 2000
-		end
-
-		for _, v in next, Players:GetPlayers() do
-			if v ~= LocalPlayer then
-				if v.Character and v.Character:FindFirstChild(Environment.Settings.LockPart) and v.Character:FindFirstChildOfClass("Humanoid") then
-					if Environment.Settings.TeamCheck and v.Team == LocalPlayer.Team then continue end
-					if Environment.Settings.AliveCheck and v.Character:FindFirstChildOfClass("Humanoid").Health <= 0 then continue end
-					if Environment.Settings.WallCheck and #(Camera:GetPartsObscuringTarget({v.Character[Environment.Settings.LockPart].Position}, v.Character:GetDescendants())) > 0 then continue end
-
-					local Vector, OnScreen = Camera:WorldToViewportPoint(v.Character[Environment.Settings.LockPart].Position)
-					local Distance = (Vector2.new(UserInputService:GetMouseLocation().X, UserInputService:GetMouseLocation().Y) - Vector2.new(Vector.X, Vector.Y)).Magnitude
-
-					if Distance < RequiredDistance and OnScreen then
-						RequiredDistance = Distance
-						Environment.Locked = v
-					end
-				end
-			end
-		end
-	elseif (Vector2.new(UserInputService:GetMouseLocation().X, UserInputService:GetMouseLocation().Y) - Vector2.new(Camera:WorldToViewportPoint(Environment.Locked.Character[Environment.Settings.LockPart].Position).X, Camera:WorldToViewportPoint(Environment.Locked.Character[Environment.Settings.LockPart].Position).Y)).Magnitude > RequiredDistance then
-		Environment.Locked = nil
-		Animation:Cancel()
-		Environment.FOVCircle.Color = GetColor(Environment.FOVSettings.Color)
-	end
-end
-
---// Typing Check
-
-ServiceConnections.TypingStartedConnection = UserInputService.TextBoxFocused:Connect(function()
-	Typing = true
+-- Toggle aimbot with right-click hold
+UserInputService.InputBegan:Connect(function(input, processed)
+    if not processed and input.UserInputType == Enum.UserInputType.MouseButton2 then
+        AimEnabled = true
+    end
 end)
 
-ServiceConnections.TypingEndedConnection = UserInputService.TextBoxFocusReleased:Connect(function()
-	Typing = false
+UserInputService.InputEnded:Connect(function(input, processed)
+    if input.UserInputType == Enum.UserInputType.MouseButton2 then
+        AimEnabled = false
+    end
 end)
 
---// Create, Save & Load Settings
+-- Main loop
+RunService.RenderStepped:Connect(function()
+    if AimEnabled then
+        aimAtTarget()
+    end
 
-if Environment.Settings.SaveSettings then
-	if not isfolder(Title) then
-		makefolder(Title)
-	end
-
-	if not isfolder(Title.."/"..FileNames[1]) then
-		makefolder(Title.."/"..FileNames[1])
-	end
-
-	if not isfile(Title.."/"..FileNames[1].."/"..FileNames[2]) then
-		writefile(Title.."/"..FileNames[1].."/"..FileNames[2], Encode(Environment.Settings))
-	else
-		Environment.Settings = Decode(readfile(Title.."/"..FileNames[1].."/"..FileNames[2]))
-	end
-
-	if not isfile(Title.."/"..FileNames[1].."/"..FileNames[3]) then
-		writefile(Title.."/"..FileNames[1].."/"..FileNames[3], Encode(Environment.FOVSettings))
-	else
-		Environment.Visuals = Decode(readfile(Title.."/"..FileNames[1].."/"..FileNames[3]))
-	end
-
-	coroutine.wrap(function()
-		while wait(10) and Environment.Settings.SaveSettings do
-			SaveSettings()
-		end
-	end)()
-else
-	if isfolder(Title) then
-		delfolder(Title)
-	end
-end
-
-local function Load()
-	ServiceConnections.RenderSteppedConnection = RunService.RenderStepped:Connect(function()
-		if Environment.FOVSettings.Enabled and Environment.Settings.Enabled then
-			Environment.FOVCircle.Radius = Environment.FOVSettings.Amount
-			Environment.FOVCircle.Thickness = Environment.FOVSettings.Thickness
-			Environment.FOVCircle.Filled = Environment.FOVSettings.Filled
-			Environment.FOVCircle.NumSides = Environment.FOVSettings.Sides
-			Environment.FOVCircle.Color = GetColor(Environment.FOVSettings.Color)
-			Environment.FOVCircle.Transparency = Environment.FOVSettings.Transparency
-			Environment.FOVCircle.Visible = Environment.FOVSettings.Visible
-			Environment.FOVCircle.Position = Vector2.new(UserInputService:GetMouseLocation().X, UserInputService:GetMouseLocation().Y)
-		else
-			Environment.FOVCircle.Visible = false
-		end
-
-		if Running and Environment.Settings.Enabled then
-			GetClosestPlayer()
-
-			if Environment.Settings.ThirdPerson then
-				Environment.Settings.ThirdPersonSensitivity = math.clamp(Environment.Settings.ThirdPersonSensitivity, 0.1, 5)
-
-				local Vector = Camera:WorldToViewportPoint(Environment.Locked.Character[Environment.Settings.LockPart].Position)
-				mousemoverel((Vector.X - UserInputService:GetMouseLocation().X) * Environment.Settings.ThirdPersonSensitivity, (Vector.Y - UserInputService:GetMouseLocation().Y) * Environment.Settings.ThirdPersonSensitivity)
-			else
-				if Environment.Settings.Sensitivity > 0 then
-					Animation = TweenService:Create(Camera, TweenInfo.new(Environment.Settings.Sensitivity, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {CFrame = CFrame.new(Camera.CFrame.Position, Environment.Locked.Character[Environment.Settings.LockPart].Position)})
-					Animation:Play()
-				else
-					Camera.CFrame = CFrame.new(Camera.CFrame.Position, Environment.Locked.Character[Environment.Settings.LockPart].Position)
-				end
-			end
-
-			Environment.FOVCircle.Color = GetColor(Environment.FOVSettings.LockedColor)
-		end
-	end)
-
-	ServiceConnections.InputBeganConnection = UserInputService.InputBegan:Connect(function(Input)
-		if not Typing then
-			pcall(function()
-				if Input.KeyCode == Enum.KeyCode[Environment.Settings.TriggerKey] then
-					if Environment.Settings.Toggle then
-						Running = not Running
-
-						if not Running then
-							Environment.Locked = nil
-							Animation:Cancel()
-							Environment.FOVCircle.Color = GetColor(Environment.FOVSettings.Color)
-						end
-					else
-						Running = true
-					end
-				end
-			end)
-
-			pcall(function()
-				if Input.UserInputType == Enum.UserInputType[Environment.Settings.TriggerKey] then
-					if Environment.Settings.Toggle then
-						Running = not Running
-
-						if not Running then
-							Environment.Locked = nil
-							Animation:Cancel()
-							Environment.FOVCircle.Color = GetColor(Environment.FOVSettings.Color)
-						end
-					else
-						Running = true
-					end
-				end
-			end)
-		end
-	end)
-
-	ServiceConnections.InputEndedConnection = UserInputService.InputEnded:Connect(function(Input)
-		if not Typing then
-			pcall(function()
-				if Input.KeyCode == Enum.KeyCode[Environment.Settings.TriggerKey] then
-					if not Environment.Settings.Toggle then
-						Running = false
-						Environment.Locked = nil
-						Animation:Cancel()
-						Environment.FOVCircle.Color = GetColor(Environment.FOVSettings.Color)
-					end
-				end
-			end)
-
-			pcall(function()
-				if Input.UserInputType == Enum.UserInputType[Environment.Settings.TriggerKey] then
-					if not Environment.Settings.Toggle then
-						Running = false
-						Environment.Locked = nil
-						Animation:Cancel()
-						Environment.FOVCircle.Color = GetColor(Environment.FOVSettings.Color)
-					end
-				end
-			end)
-		end
-	end)
-end
-
---// Functions
-
-Environment.Functions = {}
-
-function Environment.Functions:Exit()
-	SaveSettings()
-
-	for _, v in next, ServiceConnections do
-		v:Disconnect()
-	end
-
-	if Environment.FOVCircle.Remove then Environment.FOVCircle:Remove() end
-
-	getgenv().Aimbot.Functions = nil
-	getgenv().Aimbot = nil
-end
-
-function Environment.Functions:Restart()
-	SaveSettings()
-
-	for _, v in next, ServiceConnections do
-		v:Disconnect()
-	end
-
-	Load()
-end
-
-function Environment.Functions:ResetSettings()
-	Environment.Settings = {
-		SendNotifications = true,
-		SaveSettings = true, -- Re-execute upon changing
-		ReloadOnTeleport = true,
-		Enabled = true,
-		TeamCheck = true,
-		AliveCheck = true,
-		WallCheck = true,
-		Sensitivity = 0, -- Animation length (in seconds) before fully locking onto target
-		ThirdPerson = false,
-		ThirdPersonSensitivity = 3,
-		TriggerKey = "MouseButton2",
-		Toggle = false,
-		LockPart = "Head" -- Body part to lock on
-	}
-
-	Environment.FOVSettings = {
-		Enabled = true,
-		Visible = true,
-		Amount = 90,
-		Color = "255, 193, 202",
-		LockedColor = "255, 70, 70",
-		Transparency = 0.5,
-		Sides = 60,
-		Thickness = 1,
-		Filled = false
-	}
-end
-
---// Support Check
-
-if not Drawing or not getgenv then
-	SendNotification(Title, "Your exploit does not support this script", 3); return
-end
-
---// Reload On Teleport
-
-if Environment.Settings.ReloadOnTeleport then
-	if queueonteleport then
-		queueonteleport(game:HttpGet("https://raw.githubusercontent.com/Exunys/Aimbot-V2/main/Resources/Scripts/Main.lua"))
-	else
-		SendNotification(Title, "Your exploit does not support \"syn.queue_on_teleport()\"")
-	end
-end
-
---// Load
-
-Load()
+    -- Update the FOV circle's position on the screen
+    updateFOVCircle()
+end)
     end,
  })
 
  local Divider = ATab:CreateDivider()
  
 
- local Slider = ATab:CreateSlider({
-    Name = "Fov Amount",
-    Range = {0, 200},
-    Increment = 10,
-    Suffix = "FOV",
-    CurrentValue = 10,
-    Flag = "fov circle size", -- A flag is the identifier for the configuration file, make sure every element has a different flag if you're using configuration saving to ensure no overlaps
-    Callback = function(Value)
-		if getgenv().Aimbot and getgenv().Aimbot.FOVSettings then
-            getgenv().Aimbot.FOVSettings.Amount = Value
 
-        end    
-    end,
- })
 
  
 
@@ -586,7 +346,7 @@ local Button = STab:CreateButton({
 
 
  local Label = CTab:CreateLabel("Created By X64.External", "square-pen", Color3.fromRGB(255, 255, 255), false) -- Title, Icon, Color, IgnoreTheme
- local Label = CTab:CreateLabel("Quantum Script Studios (External, Plasma)", 4483362458, Color3.fromRGB(255, 255, 255), false) -- Title, Icon, Color, IgnoreTheme
+ local Label = CTab:CreateLabel("Quantum Script Studios (External, Luabit )", 4483362458, Color3.fromRGB(255, 255, 255), false) -- Title, Icon, Color, IgnoreTheme
 
 
  
@@ -625,110 +385,129 @@ local Toggle = ETab:CreateToggle({
 	Flag = "Toggle1", -- A flag is the identifier for the configuration file, make sure every element has a different flag if you're using configuration saving to ensure no overlaps
 	Callback = function(Value)
 		local Players = game:GetService("Players")
-		local RunService = game:GetService("RunService")
-		local LocalPlayer = Players.LocalPlayer
-		local Camera = workspace.CurrentCamera
-		
-		-- ESP Configuration for Box
-		local ESP_Box = {
-			Enabled = true,
-			BoxThickness = 2,
-			BoxTransparency = 0.5,
-			MaxDistance = 5000,  -- Max Distance to show ESP
-		}
-		
-		-- Storage for Box ESP objects
-		local ESP_BoxObjects = {}
-		
-		-- Function to create Box ESP for a player
-		local function CreateBoxESPForPlayer(player)
-			if player == LocalPlayer then return end
-		
-			local espObject = {}
-		
-			-- Box outline for player
-			espObject.Box = Drawing.new("Square")
-			espObject.Box.Visible = false
-			espObject.Box.Thickness = ESP_Box.BoxThickness
-			espObject.Box.Transparency = ESP_Box.BoxTransparency
-			espObject.Box.Filled = false
-		
-			ESP_BoxObjects[player] = espObject
-		
-			-- Clear ESP when player leaves
-			player.AncestryChanged:Connect(function()
-				if not player:IsDescendantOf(game) then
-					if ESP_BoxObjects[player] then
-						ESP_BoxObjects[player].Box:Remove()
-						ESP_BoxObjects[player] = nil
-					end
-				end
-			end)
-		end
-		
-		-- Create Box ESP for all existing players
-		for _, player in pairs(Players:GetPlayers()) do
-			if player ~= LocalPlayer then
-				CreateBoxESPForPlayer(player)
-			end
-		end
-		
-		-- Create Box ESP for new players who join
-		Players.PlayerAdded:Connect(CreateBoxESPForPlayer)
-		
-		-- Clear Box ESP for players who leave
-		Players.PlayerRemoving:Connect(function(player)
-			if ESP_BoxObjects[player] then
-				ESP_BoxObjects[player].Box:Remove()
-				ESP_BoxObjects[player] = nil
-			end
-		end)
-		
-		-- Update Box ESP on each frame
-		RunService.RenderStepped:Connect(function()
-			if not ESP_Box.Enabled then
-				-- Hide all Box ESP elements if disabled
-				for _, espObject in pairs(ESP_BoxObjects) do
-					espObject.Box.Visible = false
-				end
-				return
-			end
-		
-			for player, espObject in pairs(ESP_BoxObjects) do
-				-- Get character and make sure it's valid
-				local character = player.Character
-				if not character or not character:FindFirstChild("HumanoidRootPart") then
-					espObject.Box.Visible = false
-					continue
-				end
-		
-				local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
-				local vector, onScreen = Camera:WorldToViewportPoint(humanoidRootPart.Position)
-				local distance = (humanoidRootPart.Position - Camera.CFrame.Position).Magnitude
-		
-				if onScreen and distance <= ESP_Box.MaxDistance then
-					-- Get player size for box ESP (using character bounds)
-					local topPosition = humanoidRootPart.Position + Vector3.new(0, 3, 0)
-					local bottomPosition = humanoidRootPart.Position - Vector3.new(0, 3, 0)
-					local topVector = Camera:WorldToViewportPoint(topPosition)
-					local bottomVector = Camera:WorldToViewportPoint(bottomPosition)
-		
-					local height = math.abs(topVector.Y - bottomVector.Y)
-					local width = height * 0.6
-					local boxPosition = Vector2.new(vector.X - width / 2, vector.Y - height / 2)
-					local boxSize = Vector2.new(width, height)
-		
-					-- Update box ESP
-					espObject.Box.Position = boxPosition
-					espObject.Box.Size = boxSize
-					espObject.Box.Color = player.TeamColor.Color
-					espObject.Box.Visible = true
-				else
-					espObject.Box.Visible = false
-				end
-			end
-		end)
+local RunService = game:GetService("RunService")
+local Camera = workspace.CurrentCamera
+local LocalPlayer = Players.LocalPlayer
 
+local ESPObjects = {}
+
+-- Clean up ESP
+local function removeESP(player)
+    local esp = ESPObjects[player]
+    if esp then
+        if esp.Box then esp.Box:Remove() end
+        ESPObjects[player] = nil
+    end
+end
+
+-- Create Box ESP visuals
+local function createESP(player)
+    if player == LocalPlayer then return end
+
+    removeESP(player)
+
+    local box = Drawing.new("Square")
+    box.Thickness = 1
+    box.Filled = false
+    box.Color = Color3.fromRGB(0, 0, 255)  -- Blue color for the box
+    box.Transparency = 1
+    box.Visible = false
+
+    ESPObjects[player] = {
+        Box = box,
+    }
+
+    -- Handle character respawn
+    player.CharacterAdded:Connect(function()
+        task.wait(1)
+        createESP(player)
+    end)
+
+    player.CharacterRemoving:Connect(function()
+        removeESP(player)
+    end)
+
+    -- Handle death cleanup
+    if player.Character then
+        local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            humanoid.Died:Connect(function()
+                removeESP(player)
+            end)
+        end
+    end
+end
+
+-- Get the top/bottom of the character (for R6 or R15)
+local function getCharacterBounds(character)
+    local parts = {}
+
+    for _, part in ipairs(character:GetChildren()) do
+        if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+            table.insert(parts, part)
+        end
+    end
+
+    local top, bottom = nil, nil
+
+    for _, part in ipairs(parts) do
+        if not top or part.Position.Y > top.Y then
+            top = part.Position
+        end
+        if not bottom or part.Position.Y < bottom.Y then
+            bottom = part.Position
+        end
+    end
+
+    return top, bottom
+end
+
+-- Drawing loop for Box ESP
+RunService.RenderStepped:Connect(function()
+    for player, esp in pairs(ESPObjects) do
+        local character = player.Character
+        if character and character:FindFirstChild("HumanoidRootPart") then
+            local root = character.HumanoidRootPart
+            local top, bottom = getCharacterBounds(character)
+            if not top or not bottom then continue end
+
+            local topScreen, topOnScreen = Camera:WorldToViewportPoint(top)
+            local bottomScreen, bottomOnScreen = Camera:WorldToViewportPoint(bottom)
+
+            if topOnScreen and bottomOnScreen then
+                local height = math.abs(topScreen.Y - bottomScreen.Y)
+                local width = height / 2
+                local centerX = (topScreen.X + bottomScreen.X) / 2
+
+                esp.Box.Size = Vector2.new(width, height)
+                esp.Box.Position = Vector2.new(centerX - width / 2, topScreen.Y)
+                esp.Box.Visible = true
+            else
+                esp.Box.Visible = false
+            end
+        else
+            if esp then
+                esp.Box.Visible = false
+            end
+        end
+    end
+end)
+
+-- Initial setup for ESP
+for _, player in ipairs(Players:GetPlayers()) do
+    if player ~= LocalPlayer then
+        createESP(player)
+    end
+end
+
+Players.PlayerAdded:Connect(function(player)
+    player.CharacterAdded:Connect(function()
+        task.wait(1)
+        createESP(player)
+    end)
+end)
+
+Players.PlayerRemoving:Connect(removeESP)
 	end,
  })
 
@@ -740,131 +519,137 @@ local Toggle = ETab:CreateToggle({
 	Callback = function(Value)
 	local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
+local LocalPlayer = Players.LocalPlayer
 
--- ESP Configuration for Health Bar
-local ESP_HealthBar = {
-    Enabled = true,
-    ShowHealthBar = true,
-    HealthBarThickness = 2,
-    HealthBarWidth = 50,
-    HealthBarHeight = 5,
-    MaxDistance = 5000,  -- Max Distance to show ESP
-}
+local ESPObjects = {}
 
--- Storage for Health Bar ESP objects
-local ESP_HealthBarObjects = {}
+-- Clean up ESP
+local function removeESP(player)
+    local esp = ESPObjects[player]
+    if esp then
+        if esp.HealthBar then esp.HealthBar:Remove() end
+        ESPObjects[player] = nil
+    end
+end
 
--- Function to create Health Bar ESP for a player
-local function CreateHealthBarESPForPlayer(player)
+-- Create Health Bar ESP visuals
+local function createESP(player)
     if player == LocalPlayer then return end
 
-    local espObject = {}
+    removeESP(player)
 
-    -- Health bar background (gray)
-    espObject.HealthBG = Drawing.new("Square")
-    espObject.HealthBG.Visible = false
-    espObject.HealthBG.Thickness = ESP_HealthBar.HealthBarThickness
-    espObject.HealthBG.Filled = true
-    espObject.HealthBG.Color = Color3.fromRGB(100, 100, 100)
-    espObject.HealthBG.Transparency = 0.7
+    local healthBar = Drawing.new("Line")
+    healthBar.Thickness = 2
+    healthBar.Color = Color3.fromRGB(0, 255, 0)  -- Green color for health bar
+    healthBar.Visible = false
 
-    -- Health bar fill (green to red depending on health)
-    espObject.HealthBar = Drawing.new("Square")
-    espObject.HealthBar.Visible = false
-    espObject.HealthBar.Thickness = ESP_HealthBar.HealthBarThickness
-    espObject.HealthBar.Filled = true
-    espObject.HealthBar.Transparency = 0.7
+    ESPObjects[player] = {
+        HealthBar = healthBar,
+    }
 
-    ESP_HealthBarObjects[player] = espObject
+    -- Handle character respawn
+    player.CharacterAdded:Connect(function()
+        task.wait(1)
+        createESP(player)
+    end)
 
-    -- Clear ESP when player leaves
-    player.AncestryChanged:Connect(function()
-        if not player:IsDescendantOf(game) then
-            if ESP_HealthBarObjects[player] then
-                ESP_HealthBarObjects[player].HealthBG:Remove()
-                ESP_HealthBarObjects[player].HealthBar:Remove()
-                ESP_HealthBarObjects[player] = nil
+    player.CharacterRemoving:Connect(function()
+        removeESP(player)
+    end)
+
+    -- Handle death cleanup
+    if player.Character then
+        local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            humanoid.Died:Connect(function()
+                removeESP(player)
+            end)
+        end
+    end
+end
+
+-- Get the top/bottom of the character (for R6 or R15)
+local function getCharacterBounds(character)
+    local parts = {}
+
+    for _, part in ipairs(character:GetChildren()) do
+        if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+            table.insert(parts, part)
+        end
+    end
+
+    local top, bottom = nil, nil
+
+    for _, part in ipairs(parts) do
+        if not top or part.Position.Y > top.Y then
+            top = part.Position
+        end
+        if not bottom or part.Position.Y < bottom.Y then
+            bottom = part.Position
+        end
+    end
+
+    return top, bottom
+end
+
+-- Drawing loop for Health Bar ESP
+RunService.RenderStepped:Connect(function()
+    for player, esp in pairs(ESPObjects) do
+        local character = player.Character
+        if character and character:FindFirstChild("HumanoidRootPart") then
+            local humanoid = character:FindFirstChildOfClass("Humanoid")
+            if humanoid then
+                local root = character.HumanoidRootPart
+                local top, bottom = getCharacterBounds(character)
+                if not top or not bottom then continue end
+
+                local topScreen, topOnScreen = Camera:WorldToViewportPoint(top)
+                local bottomScreen, bottomOnScreen = Camera:WorldToViewportPoint(bottom)
+
+                if topOnScreen and bottomOnScreen then
+                    -- Calculate health bar position and size
+                    local healthHeight = math.abs(topScreen.Y - bottomScreen.Y)
+                    local healthWidth = 5  -- Width of the health bar
+                    local healthPercentage = humanoid.Health / humanoid.MaxHealth
+                    local healthBarHeight = healthHeight * healthPercentage
+                    local healthBarTopY = topScreen.Y + healthHeight / 2 - healthBarHeight / 2
+
+                    -- Draw the health bar
+                    esp.HealthBar.From = Vector2.new(topScreen.X + 10, healthBarTopY)
+                    esp.HealthBar.To = Vector2.new(topScreen.X + 10, healthBarTopY + healthBarHeight)
+                    esp.HealthBar.Visible = true
+                else
+                    esp.HealthBar.Visible = false
+                end
+            else
+                if esp then
+                    esp.HealthBar.Visible = false
+                end
+            end
+        else
+            if esp then
+                esp.HealthBar.Visible = false
             end
         end
-    end)
-end
+    end
+end)
 
--- Create Health Bar ESP for all existing players
-for _, player in pairs(Players:GetPlayers()) do
+-- Initial setup for Health Bar ESP
+for _, player in ipairs(Players:GetPlayers()) do
     if player ~= LocalPlayer then
-        CreateHealthBarESPForPlayer(player)
+        createESP(player)
     end
 end
 
--- Create Health Bar ESP for new players who join
-Players.PlayerAdded:Connect(CreateHealthBarESPForPlayer)
-
--- Clear Health Bar ESP for players who leave
-Players.PlayerRemoving:Connect(function(player)
-    if ESP_HealthBarObjects[player] then
-        ESP_HealthBarObjects[player].HealthBG:Remove()
-        ESP_HealthBarObjects[player].HealthBar:Remove()
-        ESP_HealthBarObjects[player] = nil
-    end
+Players.PlayerAdded:Connect(function(player)
+    player.CharacterAdded:Connect(function()
+        task.wait(1)
+        createESP(player)
+    end)
 end)
 
--- Function to get health color based on percentage
-local function GetHealthColor(health, maxHealth)
-    local healthPercent = health / maxHealth
-    local r = math.clamp(2 * (1 - healthPercent), 0, 1)
-    local g = math.clamp(2 * healthPercent, 0, 1)
-    return Color3.new(r, g, 0)
-end
-
--- Update Health Bar ESP on each frame
-RunService.RenderStepped:Connect(function()
-    if not ESP_HealthBar.Enabled then
-        -- Hide all Health Bar ESP elements if disabled
-        for _, espObject in pairs(ESP_HealthBarObjects) do
-            espObject.HealthBG.Visible = false
-            espObject.HealthBar.Visible = false
-        end
-        return
-    end
-
-    for player, espObject in pairs(ESP_HealthBarObjects) do
-        -- Get character and make sure it's valid
-        local character = player.Character
-        if not character or not character:FindFirstChild("HumanoidRootPart") or not character:FindFirstChild("Humanoid") then
-            espObject.HealthBG.Visible = false
-            espObject.HealthBar.Visible = false
-            continue
-        end
-
-        local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
-        local humanoid = character:FindFirstChild("Humanoid")
-        local health = humanoid.Health
-        local maxHealth = humanoid.MaxHealth
-
-        -- Check if character is on screen and within max distance
-        local vector, onScreen = Camera:WorldToViewportPoint(humanoidRootPart.Position)
-        local distance = (humanoidRootPart.Position - Camera.CFrame.Position).Magnitude
-
-        if onScreen and distance <= ESP_HealthBar.MaxDistance then
-            -- Update health bar background
-            espObject.HealthBG.Position = Vector2.new(vector.X - ESP_HealthBar.HealthBarWidth / 2, vector.Y - 10)
-            espObject.HealthBG.Size = Vector2.new(ESP_HealthBar.HealthBarWidth, ESP_HealthBar.HealthBarHeight)
-            espObject.HealthBG.Visible = ESP_HealthBar.ShowHealthBar
-
-            -- Update health bar fill
-            local healthPercent = health / maxHealth
-            espObject.HealthBar.Position = Vector2.new(vector.X - ESP_HealthBar.HealthBarWidth / 2, vector.Y - 10)
-            espObject.HealthBar.Size = Vector2.new(ESP_HealthBar.HealthBarWidth * healthPercent, ESP_HealthBar.HealthBarHeight)
-            espObject.HealthBar.Color = GetHealthColor(health, maxHealth)
-            espObject.HealthBar.Visible = ESP_HealthBar.ShowHealthBar
-        else
-            espObject.HealthBG.Visible = false
-            espObject.HealthBar.Visible = false
-        end
-    end
-end)
+Players.PlayerRemoving:Connect(removeESP)
 	end,
  })
 
@@ -877,6 +662,136 @@ end)
 	-- The variable (Value) is a boolean on whether the toggle is true or false
 	end,
  })
+
+local Toggle = ETab:CreateToggle({
+   Name = "Name tag ESP",
+   CurrentValue = false,
+   Flag = "Toggle1", -- A flag is the identifier for the configuration file, make sure every element has a different flag if you're using configuration saving to ensure no overlaps
+   Callback = function(Value)
+  local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Camera = workspace.CurrentCamera
+local LocalPlayer = Players.LocalPlayer
+
+local ESPObjects = {}
+
+-- Clean up ESP
+local function removeESP(player)
+    local esp = ESPObjects[player]
+    if esp then
+        if esp.Name then esp.Name:Remove() end
+        ESPObjects[player] = nil
+    end
+end
+
+-- Create Name ESP visuals
+local function createESP(player)
+    if player == LocalPlayer then return end
+
+    removeESP(player)
+
+    local nameTag = Drawing.new("Text")
+    nameTag.Size = 14
+    nameTag.Center = true
+    nameTag.Outline = true
+    nameTag.Color = Color3.fromRGB(0, 0, 255)  -- Blue color for name tag
+    nameTag.Text = player.Name
+    nameTag.Visible = false
+
+    ESPObjects[player] = {
+        Name = nameTag,
+    }
+
+    -- Handle character respawn
+    player.CharacterAdded:Connect(function()
+        task.wait(1)
+        createESP(player)
+    end)
+
+    player.CharacterRemoving:Connect(function()
+        removeESP(player)
+    end)
+
+    -- Handle death cleanup
+    if player.Character then
+        local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            humanoid.Died:Connect(function()
+                removeESP(player)
+            end)
+        end
+    end
+end
+
+-- Get the top/bottom of the character (for R6 or R15)
+local function getCharacterBounds(character)
+    local parts = {}
+
+    for _, part in ipairs(character:GetChildren()) do
+        if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+            table.insert(parts, part)
+        end
+    end
+
+    local top, bottom = nil, nil
+
+    for _, part in ipairs(parts) do
+        if not top or part.Position.Y > top.Y then
+            top = part.Position
+        end
+        if not bottom or part.Position.Y < bottom.Y then
+            bottom = part.Position
+        end
+    end
+
+    return top, bottom
+end
+
+-- Drawing loop for Name ESP
+RunService.RenderStepped:Connect(function()
+    for player, esp in pairs(ESPObjects) do
+        local character = player.Character
+        if character and character:FindFirstChild("HumanoidRootPart") then
+            local root = character.HumanoidRootPart
+            local top, bottom = getCharacterBounds(character)
+            if not top or not bottom then continue end
+
+            local topScreen, topOnScreen = Camera:WorldToViewportPoint(top)
+
+            if topOnScreen then
+                local centerX = (topScreen.X)
+
+                esp.Name.Text = player.Name
+                esp.Name.Position = Vector2.new(centerX, topScreen.Y - 16)
+                esp.Name.Visible = true
+            else
+                esp.Name.Visible = false
+            end
+        else
+            if esp then
+                esp.Name.Visible = false
+            end
+        end
+    end
+end)
+
+-- Initial setup for Name ESP
+for _, player in ipairs(Players:GetPlayers()) do
+    if player ~= LocalPlayer then
+        createESP(player)
+    end
+end
+
+Players.PlayerAdded:Connect(function(player)
+    player.CharacterAdded:Connect(function()
+        task.wait(1)
+        createESP(player)
+    end)
+end)
+
+Players.PlayerRemoving:Connect(removeESP)
+   end,
+})
 
  local Toggle = ATab:CreateToggle({
 	Name = "Alive Check",
@@ -900,65 +815,7 @@ end)
 
  local Divider = ATab:CreateDivider()
  
- local Toggle = ATab:CreateToggle({
-	Name = "Big Head",
-	CurrentValue = false,
-	Flag = "Toggle1", -- A flag is the identifier for the configuration file, make sure every element has a different flag if you're using configuration saving to ensure no overlaps
-	Callback = function(Value)
-	
-local player = game.Players.LocalPlayer
-local character = player.Character or player.CharacterAdded:Wait()
-local head = character:FindFirstChild("Head")
-
-local function resizeHead(part)
-    if part then
-        part.Size = Vector3.new(5, 5, 5)
-        part.Transparency = 0.5
-    end
-end
-
-local function stopResizing(part)
-    if part then
-        return part.Size == Vector3.new(5, 5, 5)
-    end
-    return false
-end
-
-local function shouldResizeLocalPlayer()
-    return head and not stopResizing(head)
-end
-
-while true do
-    -- Resize the player's head if it's not already resized
-    if shouldResizeLocalPlayer() then
-        resizeHead(head)
-    end
-
-    -- Resize heads of other players
-    for _, v in ipairs(game.Players:GetPlayers()) do
-        if v ~= player and v.Character then
-            local otherHead = v.Character:FindFirstChild("Head")
-            if not stopResizing(otherHead) then
-                resizeHead(otherHead)
-            end
-        end
-    end
-
-    -- Resize heads of all parts and models in the workspace
-    for _, h in ipairs(game.Workspace:GetDescendants()) do
-        if h:IsA("Model") or h:IsA("Part") then
-            local headU = h:FindFirstChild("Head")
-            if not stopResizing(headU) then
-                resizeHead(headU)
-            end
-        end
-    end
-
-    wait(3) -- a small delay to prevent excessive loop iteration dont put too less or else is lag unless you have good device of wifi
-end
-	end,
- })
-
+ 
  local Dropdown = ETab:CreateDropdown({
     Name = "Skybox Changer",
     Options = {"Asthetic Sky"},
@@ -1008,4 +865,343 @@ end
 			end)
 		end
     end,
+})
+
+
+local Toggle = ETab:CreateToggle({
+   Name = "Visible Check",
+   CurrentValue = false,
+   Flag = "Toggle1", -- A flag is the identifier for the configuration file, make sure every element has a different flag if you're using configuration saving to ensure no overlaps
+   Callback = function(Value)
+  local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+
+local LocalPlayer = Players.LocalPlayer
+local Mouse = LocalPlayer:GetMouse()
+local Camera = workspace.CurrentCamera
+
+-- Settings
+local AimEnabled = false
+local Smoothness = 0.08      -- Lower is slower/smoother
+local AimbotMode = "Instant"  -- "Instant" or "Smooth"
+local MaxFOV = 80          -- Max pixel radius from mouse to consider a target
+local FOVCircleRadius = 80   -- The radius of the FOV Circle
+local FOVCircle = Drawing.new("Circle") -- Creating a drawing object for the FOV Circle
+
+-- FOV Circle Settings
+FOVCircle.Thickness = 1
+FOVCircle.Color = Color3.fromRGB(255, 0, 0)  -- Red circle
+FOVCircle.Filled = true     -- Make the circle filled
+FOVCircle.Transparency = 0 -- 0 is fully opaque, 1 is fully transparent (0.5 is semi-transparent)
+FOVCircle.Visible = true
+
+-- ESP Text Settings
+local ESPText = {}
+
+-- FOV Circle Settings
+FOVCircle.Thickness = 1
+FOVCircle.Color = Color3.fromRGB(255, 0, 0)  -- Red circle
+FOVCircle.Filled = true     -- Make the circle filled
+FOVCircle.Transparency = 0 -- 0 is fully opaque, 1 is fully transparent (0.5 is semi-transparent)
+FOVCircle.Visible = true
+
+-- Update the position of the FOV Circle to always be at the center of the screen
+local function updateFOVCircle()
+    -- Get the screen center position
+    local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+    -- Set the FOV circle to be at the center
+    FOVCircle.Position = screenCenter
+    FOVCircle.Radius = FOVCircleRadius
+end
+
+-- Gets the aimable body part of the character (for R6/R15)
+local function getBody(character)
+    return character:FindFirstChild("HumanoidRootPart") or character:FindFirstChild("UpperTorso") or character:FindFirstChild("Torso")
+end
+
+-- Raycast to check if the player is visible
+local function isVisible(player)
+    local character = player.Character
+    if not character then return false end
+
+    local humanoidRoot = character:FindFirstChild("HumanoidRootPart")
+    if not humanoidRoot then return false end
+
+    local screenPos, onScreen = Camera:WorldToScreenPoint(humanoidRoot.Position)
+    if not onScreen then
+        return false
+    end
+
+    -- Perform a raycast from the camera to the humanoid root part
+    local ray = Ray.new(Camera.CFrame.Position, (humanoidRoot.Position - Camera.CFrame.Position).unit * 500)
+    local hit = Workspace:Raycast(ray.Origin, ray.Direction)
+
+    if hit and hit.Instance.Parent == character then
+        return true
+    else
+        return false
+    end
+end
+
+-- Get closest visible player within FOV
+local function getClosestPlayer()
+    local closest = nil
+    local shortest = MaxFOV
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character then
+            local character = player.Character
+            local humanoid = character:FindFirstChildOfClass("Humanoid")
+
+            if humanoid and humanoid.Health > 0 then
+                local part = getBody(character)
+                if part then
+                    local screenPos, onScreen = Camera:WorldToScreenPoint(part.Position)
+                    if onScreen then
+                        local dist = (Vector2.new(Mouse.X, Mouse.Y) - Vector2.new(screenPos.X, screenPos.Y)).Magnitude
+                        if dist < shortest then
+                            shortest = dist
+                            closest = part
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    return closest
+end
+
+-- Smooth or instant aim toward the target
+local function aimAtTarget()
+    local targetPart = getClosestPlayer()
+    if targetPart then
+        local targetPos = targetPart.Position
+        local camPos = Camera.CFrame.Position
+        local aimCFrame = CFrame.new(camPos, targetPos)
+
+        if AimbotMode == "Instant" then
+            Camera.CFrame = aimCFrame
+        else
+            Camera.CFrame = Camera.CFrame:Lerp(aimCFrame, Smoothness)
+        end
+    end
+end
+
+-- Toggle aimbot with right-click hold
+UserInputService.InputBegan:Connect(function(input, processed)
+    if not processed and input.UserInputType == Enum.UserInputType.MouseButton2 then
+        AimEnabled = true
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input, processed)
+    if input.UserInputType == Enum.UserInputType.MouseButton2 then
+        AimEnabled = false
+    end
+end)
+
+-- Update ESP Text
+local function updateESP()
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character then
+            local character = player.Character
+            local humanoidRoot = character:FindFirstChild("HumanoidRootPart")
+            if humanoidRoot then
+                local screenPos, onScreen = Camera:WorldToScreenPoint(humanoidRoot.Position)
+                if onScreen then
+                    if isVisible(player) then
+                        -- Display "Visible" text
+                        if not ESPText[player] then
+                            ESPText[player] = Drawing.new("Text")
+                            ESPText[player].Color = Color3.fromRGB(0, 255, 0)  -- Green text
+                            ESPText[player].Size = 18
+                            ESPText[player].Outline = true
+                        end
+                        ESPText[player].Text = "Visible"
+                        ESPText[player].Position = Vector2.new(screenPos.X, screenPos.Y - 20)
+                        ESPText[player].Visible = true
+                    else
+                        if ESPText[player] then
+                            ESPText[player].Visible = false
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+
+-- Main loop
+RunService.RenderStepped:Connect(function()
+    if AimEnabled then
+        aimAtTarget()
+    end
+
+    -- Update the FOV circle's position on the screen
+    updateFOVCircle()
+
+    -- Update ESP for visibility
+    updateESP()
+end)
+   end,
+})
+
+local Toggle = MTab:CreateToggle({
+   Name = "Zoom(T)",
+   CurrentValue = false,
+   Flag = "Toggle1", -- A flag is the identifier for the configuration file, make sure every element has a different flag if you're using configuration saving to ensure no overlaps
+   Callback = function(Value)
+ local UserInputService = game:GetService("UserInputService")
+local Camera = workspace.CurrentCamera
+
+-- Store the normal FOV and the zoomed-in FOV
+local normalFOV = Camera.FieldOfView
+local zoomedInFOV = 30
+local isZoomedIn = false
+
+-- Function to toggle the FOV between normal and zoomed-in
+local function toggleFOV()
+    if isZoomedIn then
+        -- Revert to normal FOV
+        Camera.FieldOfView = normalFOV
+    else
+        -- Zoom in to the FOV of 30
+        Camera.FieldOfView = zoomedInFOV
+    end
+    -- Toggle the zoom state
+    isZoomedIn = not isZoomedIn
+end
+
+-- Listen for the "T" key press to toggle FOV
+UserInputService.InputBegan:Connect(function(input, processed)
+    if not processed and input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == Enum.KeyCode.T then
+        toggleFOV()
+    end
+end)
+   end,
+})
+
+local Toggle = MTab:CreateToggle({
+   Name = "No Recoil",
+   CurrentValue = false,
+   Flag = "Toggle1", -- A flag is the identifier for the configuration file, make sure every element has a different flag if you're using configuration saving to ensure no overlaps
+   Callback = function(Value)
+  local p = game:GetService("Players").LocalPlayer
+
+task.spawn(function()
+    while true do
+        local t
+        -- Search for the tool in the Backpack
+        for _, v in pairs(p.Backpack:GetChildren()) do
+            if v:IsA("Tool") and v.Name == "SP" then
+                t = v
+                break
+            end
+        end
+
+        -- If the tool wasn't found in the Backpack, search in the Character
+        if not t and p.Character then
+            for _, v in pairs(p.Character:GetChildren()) do
+                if v:IsA("Tool") and v.Name == "SP" then
+                    t = v
+                    break
+                end
+            end
+        end
+
+        -- If the tool is found, set its attributes
+        if t then
+            t:SetAttribute("rateOfFire", 100000000000)
+            t:SetAttribute("reloadTime", 0)
+            t:SetAttribute("recoilMax", Vector2.new(0, 0))
+            t:SetAttribute("recoilMin", Vector2.new(0, 0))
+            t:SetAttribute("spread", 0)
+        end
+
+        -- Wait 1 second before checking again
+        task.wait(1)
+    end
+end)
+
+   end,
+})
+
+local Toggle = MTab:CreateToggle({
+   Name = "No reload/Inf ammo",
+   CurrentValue = false,
+   Flag = "Toggle1", -- A flag is the identifier for the configuration file, make sure every element has a different flag if you're using configuration saving to ensure no overlaps
+   Callback = function(Value)
+ local p = game:GetService("Players").LocalPlayer
+
+task.spawn(function()
+    while true do
+        local t
+        -- Search for the tool in the Backpack
+        for _, v in pairs(p.Backpack:GetChildren()) do
+            if v:IsA("Tool") and v.Name == "SP" then
+                t = v
+                break
+            end
+        end
+
+        -- If the tool wasn't found in the Backpack, search in the Character
+        if not t and p.Character then
+            for _, v in pairs(p.Character:GetChildren()) do
+                if v:IsA("Tool") and v.Name == "SP" then
+                    t = v
+                    break
+                end
+            end
+        end
+
+        -- If the tool is found, set its attributes
+        if t then
+            t:SetAttribute("rateOfFire", 100000000000)
+            t:SetAttribute("reloadTime", 0)
+            t:SetAttribute("recoilMax", Vector2.new(0, 0))
+            t:SetAttribute("recoilMin", Vector2.new(0, 0))
+            t:SetAttribute("spread", 0)
+             t:SetAttribute("fireMode", 'Auto')
+             
+        end
+
+        -- Wait 1 second before checking again
+        task.wait(1)
+    end
+end)
+   end,
+})
+
+local Toggle = MTab:CreateToggle({
+   Name = "Rapid Fire",
+   CurrentValue = false,
+   Flag = "Toggle1", -- A flag is the identifier for the configuration file, make sure every element has a different flag if you're using configuration saving to ensure no overlaps
+   Callback = function(Value)
+
+   end,
+})
+
+
+local Toggle = MTab:CreateToggle({
+   Name = "Rust Hitsounds",
+   CurrentValue = false,
+   Flag = "Toggle1", -- A flag is the identifier for the configuration file, make sure every element has a different flag if you're using configuration saving to ensure no overlaps
+   Callback = function(Value)
+   
+game:GetService("SoundService").HitGun.HitBody.SoundId = "rbxassetid://1255040462"
+
+
+game:GetService("SoundService").HitGun.HitBody:Play()
+
+local hitGun = game:GetService("SoundService"):FindFirstChild("HitGun")
+if hitGun then
+    local hitBody = hitGun:FindFirstChild("HitBody")
+    if hitBody and hitBody:IsA("Sound") then
+        hitBody.Volume = 10
+    end
+end
+   end,
 })
